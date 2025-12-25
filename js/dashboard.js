@@ -1,12 +1,14 @@
 // dashboard.js
 
-const API_URL = "https://valarie-interseaboard-jazmine.ngrok-free.dev"; // ngrok backend
+const API_URL = "http://156.204.49.105:8000"; // FastAPI backend
 const LOCAL_EXTRA_CAMS_KEY = "extra_cams";
 
 let allCameras = [];
-let currentFilter = 'all';
+let currentFilter = "all";
 
-// --- Helper: fetch extra cameras from localStorage ---
+/* =========================
+   Local Cameras Helpers
+========================= */
 const loadExtraCams = () => {
   try {
     const raw = localStorage.getItem(LOCAL_EXTRA_CAMS_KEY);
@@ -17,12 +19,13 @@ const loadExtraCams = () => {
   }
 };
 
-// --- Helper: save extra cameras to localStorage ---
-const saveExtraCams = (extraCams) => {
-  localStorage.setItem(LOCAL_EXTRA_CAMS_KEY, JSON.stringify(extraCams));
+const saveExtraCams = (cams) => {
+  localStorage.setItem(LOCAL_EXTRA_CAMS_KEY, JSON.stringify(cams));
 };
 
-// --- Update statistics ---
+/* =========================
+   Stats
+========================= */
 const updateStats = () => {
   const total = allCameras.length;
   const online = allCameras.filter(c => c.online).length;
@@ -33,63 +36,88 @@ const updateStats = () => {
   document.getElementById("offlineCameras").textContent = offline;
 };
 
-// --- Render camera cards ---
+/* =========================
+   Render Cameras
+========================= */
 const renderCameras = () => {
   const grid = document.getElementById("camerasGrid");
 
-  let camerasToShow = allCameras;
-  if (currentFilter === 'online') camerasToShow = allCameras.filter(c => c.online);
-  else if (currentFilter === 'offline') camerasToShow = allCameras.filter(c => !c.online);
+  let cams = allCameras;
+  if (currentFilter === "online") cams = cams.filter(c => c.online);
+  if (currentFilter === "offline") cams = cams.filter(c => !c.online);
 
-  grid.innerHTML = camerasToShow.map(cam => `
+  if (cams.length === 0) {
+    grid.innerHTML = "<p style='padding:20px'>No cameras found</p>";
+    return;
+  }
+
+  grid.innerHTML = cams.map(cam => `
     <div class="camera-card" data-name="${cam.name}" data-rtsp="${cam.rtsp}">
       <div class="camera-preview">
-        ${cam.online ? '📹' : '📵'}
+        ${cam.online ? "📹" : "📵"}
       </div>
       <div class="camera-info">
         <h3>${cam.name}</h3>
-        <div class="rtsp">${cam.rtsp}</div>
-        <span class="camera-status ${cam.online ? 'status-online' : 'status-offline'}">
-          ${cam.online ? '● Online' : '● Offline'}
+        <div class="rtsp">${cam.rtsp || "No stream"}</div>
+        <span class="camera-status ${cam.online ? "status-online" : "status-offline"}">
+          ● ${cam.online ? "Online" : "Offline"}
         </span>
       </div>
     </div>
-  `).join('');
+  `).join("");
 
-  // Attach click event to open video
-  grid.querySelectorAll('.camera-card').forEach(card => {
-    card.addEventListener('click', () => openVideo(card.dataset.name, card.dataset.rtsp));
+  grid.querySelectorAll(".camera-card").forEach(card => {
+    card.addEventListener("click", () => {
+      openVideo(card.dataset.name, card.dataset.rtsp);
+    });
   });
 };
 
-// --- Fetch cameras from backend ---
+/* =========================
+   Load Cameras (FIXED)
+========================= */
 const loadCameras = async () => {
   const loading = document.getElementById("loading");
   const error = document.getElementById("error");
   const grid = document.getElementById("camerasGrid");
 
+  const token = localStorage.getItem("access_token");
+  if (!token) {
+    error.style.display = "block";
+    error.textContent = "Not logged in";
+    return;
+  }
+
   loading.style.display = "block";
-  grid.style.display = "none";
   error.style.display = "none";
+  grid.style.display = "none";
 
   try {
-    const res = await fetch(`${API_URL}/api/cameras`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const res = await fetch(`${API_URL}/cams`, {
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
 
-    const baseCams = (data.cameras || []).map(cam => ({
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+    if (data.status !== "success") {
+      throw new Error(data.message || "Failed to load cameras");
+    }
+
+    // Backend cameras
+    const backendCams = data.cams.map(cam => ({
       id: cam.id,
       name: cam.name,
-      rtsp: cam.stream_url,
-      online: true
+      rtsp: cam.rtsp_link || "",
+      online: cam.enabled === true
     }));
 
+    // Local-only cameras
     const extraCams = loadExtraCams();
 
-    allCameras = [...baseCams, ...extraCams].map(cam => ({
-      ...cam,
-      online: (typeof cam.online === "boolean") ? cam.online : (Math.random() > 0.2)
-    }));
+    allCameras = [...backendCams, ...extraCams];
 
     updateStats();
     renderCameras();
@@ -98,50 +126,45 @@ const loadCameras = async () => {
     grid.style.display = "grid";
 
   } catch (err) {
-    console.error("Error loading cameras:", err);
+    console.error(err);
     loading.style.display = "none";
     error.style.display = "block";
     error.textContent = "Failed to load cameras. Please try again.";
   }
 };
 
-// --- Filter cameras ---
+/* =========================
+   Filters
+========================= */
 const filterCameras = (filter) => {
   currentFilter = filter;
-  document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelector(`.filter-btn[data-filter="${filter}"]`)?.classList.add('active');
+  document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+  event.target.classList.add("active");
   renderCameras();
 };
 
-// --- Video modal ---
+/* =========================
+   Video Modal
+========================= */
 const openVideo = (name, url) => {
-  const modal = document.getElementById("videoModal");
-  const img = document.getElementById("cameraImage");
-  const title = document.getElementById("modalTitle");
+  if (!url) return;
 
-  title.textContent = name;
-  img.src = url;
-  modal.style.display = "flex";
+  document.getElementById("modalTitle").textContent = name;
+  document.getElementById("cameraImage").src = url;
+  document.getElementById("videoModal").style.display = "flex";
 };
 
 const closeVideo = () => {
-  const modal = document.getElementById("videoModal");
-  const img = document.getElementById("cameraImage");
-  img.src = "";
-  modal.style.display = "none";
+  document.getElementById("cameraImage").src = "";
+  document.getElementById("videoModal").style.display = "none";
 };
 
-// --- Add camera modal ---
+/* =========================
+   Add Camera Modal
+========================= */
 const openAddCam = () => {
-  const msg = document.getElementById("addCamMsg");
-  msg.style.display = "none";
-  msg.textContent = "";
-
-  document.getElementById("camName").value = "";
-  document.getElementById("camIp").value = "";
-  document.getElementById("camUser").value = "";
-  document.getElementById("camPass").value = "";
-
+  document.getElementById("addCamMsg").textContent = "";
+  document.getElementById("addCamMsg").style.display = "none";
   document.getElementById("addCamModal").style.display = "flex";
 };
 
@@ -149,12 +172,14 @@ const closeAddCam = () => {
   document.getElementById("addCamModal").style.display = "none";
 };
 
-// --- Save new camera ---
+/* =========================
+   Save New Camera (Local)
+========================= */
 const saveNewCam = () => {
-  const name = document.getElementById("camName").value.trim();
-  const ip = document.getElementById("camIp").value.trim();
-  const user = document.getElementById("camUser").value.trim();
-  const pass = document.getElementById("camPass").value;
+  const name = camName.value.trim();
+  const ip = camIp.value.trim();
+  const user = camUser.value.trim();
+  const pass = camPass.value;
 
   const msg = document.getElementById("addCamMsg");
 
@@ -164,41 +189,36 @@ const saveNewCam = () => {
     return;
   }
 
-  const rtspUrl = `rtsp://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${ip}:554/cam/realmonitor?channel=1&subtype=1`;
+  const rtsp = `rtsp://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${ip}:554/cam/realmonitor?channel=1&subtype=1`;
 
-  const nextId = allCameras.reduce((m, c) => Math.max(m, (c.id || 0)), 0) + 1;
-  const newCam = { id: nextId, name, rtsp: rtspUrl, online: true };
+  const id = Date.now();
+  const cam = { id, name, rtsp, online: true };
 
-  const extraCams = loadExtraCams();
-  extraCams.push(newCam);
-  saveExtraCams(extraCams);
+  const extras = loadExtraCams();
+  extras.push(cam);
+  saveExtraCams(extras);
 
-  allCameras.push(newCam);
+  allCameras.push(cam);
   updateStats();
   renderCameras();
-
   closeAddCam();
 };
 
-// --- Logout ---
+/* =========================
+   Logout
+========================= */
 const logout = () => {
   localStorage.clear();
   window.location.href = "login.html";
 };
 
-// --- On page load ---
+/* =========================
+   Init
+========================= */
 window.addEventListener("load", () => {
-  const username = localStorage.getItem("username") || "User";
-  document.getElementById("userName").textContent = `👤 ${username}`;
+  document.getElementById("userName").textContent =
+    "👤 " + (localStorage.getItem("username") || "User");
+
   loadCameras();
   setInterval(loadCameras, 30000);
-
-  // Attach filter buttons
-  document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', () => filterCameras(btn.dataset.filter));
-  });
-
-  // Attach modal close buttons
-  document.getElementById("closeVideoBtn")?.addEventListener('click', closeVideo);
-  document.getElementById("closeAddCamBtn")?.addEventListener('click', closeAddCam);
 });
