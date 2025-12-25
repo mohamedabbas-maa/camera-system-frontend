@@ -1,29 +1,11 @@
 // dashboard.js
 
-const API_URL = "https://valarie-interseaboard-jazmine.ngrok-free.dev"; // FastAPI backend
-const LOCAL_EXTRA_CAMS_KEY = "extra_cams";
+const API_URL = "http://127.0.0.1:9001"; // FastAPI backend
 
 let allCameras = [];
 let currentFilter = "all";
 
 /* =========================
-   Local Cameras Helpers
-========================= */
-const loadExtraCams = () => {
-  try {
-    const raw = localStorage.getItem(LOCAL_EXTRA_CAMS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveExtraCams = (cams) => {
-  localStorage.setItem(LOCAL_EXTRA_CAMS_KEY, JSON.stringify(cams));
-};
-
-/* =========================https://valarie-interseaboard-jazmine.ngrok-free.dev
    Stats
 ========================= */
 const updateStats = () => {
@@ -74,7 +56,7 @@ const renderCameras = () => {
 };
 
 /* =========================
-   Load Cameras (FIXED)
+   Load Cameras from Backend Only
 ========================= */
 const loadCameras = async () => {
   const loading = document.getElementById("loading");
@@ -94,9 +76,7 @@ const loadCameras = async () => {
 
   try {
     const res = await fetch(`${API_URL}/cams`, {
-      headers: {
-        "Authorization": `Bearer ${token}`
-      }
+      headers: { "Authorization": `Bearer ${token}` }
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -106,18 +86,13 @@ const loadCameras = async () => {
       throw new Error(data.message || "Failed to load cameras");
     }
 
-    // Backend cameras
-    const backendCams = data.cams.map(cam => ({
+    // Map cameras to use backend MJPEG stream
+    allCameras = data.cams.map(cam => ({
       id: cam.id,
       name: cam.name,
-      rtsp: cam.rtsp_link || "",
+      rtsp: `/stream/${cam.id}`, // <- key fix
       online: cam.enabled === true
     }));
-
-    // Local-only cameras
-    const extraCams = loadExtraCams();
-
-    allCameras = [...backendCams, ...extraCams];
 
     updateStats();
     renderCameras();
@@ -150,58 +125,13 @@ const openVideo = (name, url) => {
   if (!url) return;
 
   document.getElementById("modalTitle").textContent = name;
-  document.getElementById("cameraImage").src = url;
+  document.getElementById("cameraImage").src = url; // backend MJPEG stream
   document.getElementById("videoModal").style.display = "flex";
 };
 
 const closeVideo = () => {
   document.getElementById("cameraImage").src = "";
   document.getElementById("videoModal").style.display = "none";
-};
-
-/* =========================
-   Add Camera Modal
-========================= */
-const openAddCam = () => {
-  document.getElementById("addCamMsg").textContent = "";
-  document.getElementById("addCamMsg").style.display = "none";
-  document.getElementById("addCamModal").style.display = "flex";
-};
-
-const closeAddCam = () => {
-  document.getElementById("addCamModal").style.display = "none";
-};
-
-/* =========================
-   Save New Camera (Local)
-========================= */
-const saveNewCam = () => {
-  const name = camName.value.trim();
-  const ip = camIp.value.trim();
-  const user = camUser.value.trim();
-  const pass = camPass.value;
-
-  const msg = document.getElementById("addCamMsg");
-
-  if (!name || !ip || !user || !pass) {
-    msg.textContent = "Please fill all fields.";
-    msg.style.display = "block";
-    return;
-  }
-
-  const rtsp = `rtsp://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${ip}:554/cam/realmonitor?channel=1&subtype=1`;
-
-  const id = Date.now();
-  const cam = { id, name, rtsp, online: true };
-
-  const extras = loadExtraCams();
-  extras.push(cam);
-  saveExtraCams(extras);
-
-  allCameras.push(cam);
-  updateStats();
-  renderCameras();
-  closeAddCam();
 };
 
 /* =========================
