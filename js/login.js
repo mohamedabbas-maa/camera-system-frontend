@@ -1,4 +1,4 @@
-const API_URL = "http://156.204.49.105:8000"; // Your backend URL
+const API_URL = "https://valarie-interseaboard-jazmine.ngrok-free.dev"; // Your ngrok URL
 const form = document.getElementById("loginForm");
 const errorMessage = document.getElementById("errorMessage");
 
@@ -20,6 +20,7 @@ form.addEventListener("submit", async (e) => {
 
     if (data.status === "error") {
       errorMessage.style.display = "block";
+      errorMessage.style.color = "#e74c3c"; // red for errors
       errorMessage.textContent = data.message || "Login failed";
       return;
     }
