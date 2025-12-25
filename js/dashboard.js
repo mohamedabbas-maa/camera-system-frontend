@@ -1,6 +1,6 @@
 // dashboard.js
 
-const API_URL = "http://156.204.49.105:8000"; // FastAPI backend
+const API_URL = "https://valarie-interseaboard-jazmine.ngrok-free.dev"; // FastAPI backend
 const LOCAL_EXTRA_CAMS_KEY = "extra_cams";
 
 let allCameras = [];
@@ -23,7 +23,7 @@ const saveExtraCams = (cams) => {
   localStorage.setItem(LOCAL_EXTRA_CAMS_KEY, JSON.stringify(cams));
 };
 
-/* =========================
+/* =========================https://valarie-interseaboard-jazmine.ngrok-free.dev
    Stats
 ========================= */
 const updateStats = () => {
