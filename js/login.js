@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:8000"; // Your backend URL
+const API_URL = "http://156.204.49.105:8000"; // Your backend URL
 const form = document.getElementById("loginForm");
 const errorMessage = document.getElementById("errorMessage");
 

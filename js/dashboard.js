@@ -1,6 +1,6 @@
 // dashboard.js
 
-const API_URL = "http://127.0.0.1:9001"; // your backend
+const API_URL = "http://156.204.49.105:8000"; // your backend
 const LOCAL_EXTRA_CAMS_KEY = "extra_cams";
 
 let allCameras = [];
