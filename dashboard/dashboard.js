@@ -132,7 +132,7 @@ function filterCameras(filter) {
 // Logout
 function logout() {
   localStorage.clear();
-  window.location.href = "login.html";
+  window.location.href = "../login/login.html";
 }
 
 // Open MJPEG stream
