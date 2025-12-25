@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Camera Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+
+<body>
+  <!-- Navigation Bar -->
+  <div class="navbar">
+    <h1>
+      <span>🎥</span>
+      <span>Camera Monitoring System</span>
+    </h1>
+    <div class="user-info">
+      <span id="userName">Loading...</span>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Statistics -->
+    <div class="stats">
+      <div class="stat-card">
+        <h3>Total Cameras</h3>
+        <div class="value" id="totalCameras">0</div>
+      </div>
+      <div class="stat-card">
+        <h3>Online</h3>
+        <div class="value status-green" id="onlineCameras">0</div>
+      </div>
+      <div class="stat-card">
+        <h3>Offline</h3>
+        <div class="value status-red" id="offlineCameras">0</div>
+      </div>
+      <div class="stat-card">
+        <h3>System Status</h3>
+        <div class="value status-green" style="font-size: 20px;">● Operational</div>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterCameras('all')">All Cameras</button>
+      <button class="filter-btn" onclick="filterCameras('online')">Online Only</button>
+      <button class="filter-btn" onclick="filterCameras('offline')">Offline Only</button>
+      <button class="filter-btn" onclick="openAddCam()">New CAM</button>
+    </div>
+
+    <!-- Section Header -->
+    <div class="section-header">
+      <h2>Camera Grid</h2>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading" id="loading">
+      <div style="font-size: 48px; margin-bottom: 20px;">⏳</div>
+      <div>Loading cameras...</div>
+    </div>
+
+    <!-- Error State -->
+    <div class="error-message" id="error" style="display: none;"></div>
+
+    <!-- Cameras Grid -->
+    <div class="cameras-grid" id="camerasGrid"></div>
+  </div>
+
+  <!-- Modals -->
+  <div id="videoModal" class="modal-overlay">
+    <div class="modal-video">
+      <div class="modal-video-top">
+        <span id="modalTitle"></span>
+        <button onclick="closeVideo()">Close</button>
+      </div>
+      <img id="cameraImage" />
+    </div>
+  </div>
+
+  <div id="addCamModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-top">
+        <h3>Add New CAM</h3>
+        <button class="modal-close" onclick="closeAddCam()">X</button>
+      </div>
+      <div class="modal-grid">
+        <label>CAM Name</label>
+        <input id="camName" placeholder="CAM3" />
+        <label>CAM IP</label>
+        <input id="camIp" placeholder="192.168.100.153" />
+        <label>User Name</label>
+        <input id="camUser" placeholder="admin" />
+        <label>Password</label>
+        <input id="camPass" type="password" placeholder="********" />
+        <div id="addCamMsg" class="form-msg"></div>
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeAddCam()">Cancel</button>
+          <button class="btn-primary" onclick="saveNewCam()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS -->
+  <script src="dashboard.js"></script>
+</body>
+</html>
