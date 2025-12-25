@@ -24,14 +24,14 @@ body {
 }
 
 .logo-container img {
-  width: 120px;       /* logo width */
-  height: auto;       /* maintain aspect ratio */
-  border-radius: 8px; /* optional rounding */
+  width: 120px;
+  height: auto;
+  border-radius: 8px;
   transition: transform 0.3s;
 }
 
 .logo-container img:hover {
-  transform: scale(1.05); /* subtle hover effect */
+  transform: scale(1.05);
 }
 
 .login-container h1 {
