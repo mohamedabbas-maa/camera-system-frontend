@@ -78,15 +78,21 @@ function authHeaders() {
   return { Authorization: `Bearer ${token}` };
 }
 
+/* =========================================================
+   ensure login (Local / Remote)
+========================================================= */
+
 function ensureLoggedIn() {
   if (!isLoggedIn()) {
     const error = byId("error");
     const loading = byId("loading");
+
     if (loading) loading.style.display = "none";
     if (error) {
       error.style.display = "block";
-      error.textContent = "Not logged in. Please login first.";
+      error.textContent = "Please login first.";
     }
+
     return false;
   }
   return true;
