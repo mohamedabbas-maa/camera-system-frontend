@@ -16,8 +16,13 @@
     </h1>
     <div class="user-info">
       <span id="userName">Loading...</span>
-      <button class="logout-btn" onclick="logout()">Logout</button>
-    </div>
+
+      <button type="button" class="logout-btn" onclick="changeMode()">
+        Change Mode
+      </button>
+
+      <button type="button" class="logout-btn" onclick="logout()">Logout</button>
+  </div>
   </div>
 
   <div class="container">
@@ -43,15 +48,26 @@
 
     <!-- Filter Bar -->
     <div class="filter-bar">
-      <button class="filter-btn active" onclick="filterCameras('all')">All Cameras</button>
-      <button class="filter-btn" onclick="filterCameras('online')">Online Only</button>
-      <button class="filter-btn" onclick="filterCameras('offline')">Offline Only</button>
-      <button class="filter-btn" onclick="openAddCam()">New CAM</button>
+      <button type="button" class="filter-btn active" onclick="filterCameras('all', this)">All Cameras</button>
+      <button type="button" class="filter-btn" onclick="filterCameras('online', this)">Online Only</button>
+      <button type="button" class="filter-btn" onclick="filterCameras('offline', this)">Offline Only</button>
+      <button type="button" class="filter-btn" onclick="openAddCam()">New CAM</button>
     </div>
 
     <!-- Section Header -->
     <div class="section-header">
-      <h2>Camera Grid</h2>
+      <h2 class="grid-title">
+        Camera Grid
+        <button
+          type="button"
+          class="icon-btn"
+          title="Refresh cameras"
+          onclick="refreshNow(this)"
+          aria-label="Refresh cameras"
+        >
+          ⟳
+        </button>
+      </h2>
     </div>
 
     <!-- Loading State -->
@@ -67,36 +83,78 @@
     <div class="cameras-grid" id="camerasGrid"></div>
   </div>
 
-  <!-- Modals -->
-  <div id="videoModal" class="modal-overlay">
-    <div class="modal-video">
-      <div class="modal-video-top">
-        <span id="modalTitle"></span>
-        <button onclick="closeVideo()">Close</button>
+  <!-- Connection Mode Modal -->
+  <div id="modeModal" class="modal-overlay" style="display:none">
+    <div class="modal-card">
+      <div class="modal-top">
+        <h3>Connection Mode</h3>
       </div>
-      <img id="cameraImage" />
+      <div style="display:grid; gap:12px;">
+        <div style="color:#333; font-size:14px;">
+          Are you connected Local Network or Remotely?
+        </div>
+
+        <button type="button" class="btn-primary" onclick="selectMode('local')">
+          Local Network (Stream)
+        </button>
+
+        <button type="button" class="btn-secondary" onclick="selectMode('remote')">
+          Remotely (Snapshots Gallery)
+        </button>
+
+        <div id="modeMsg" class="form-msg" style="display:none;"></div>
+      </div>
     </div>
   </div>
 
-  <div id="addCamModal" class="modal-overlay">
+  <!-- Video/Gallery Modal -->
+  <div id="videoModal" class="modal-overlay" style="display:none">
+    <div class="modal-video">
+      <div class="modal-video-top">
+        <span id="modalTitle"></span>
+        <button type="button" onclick="closeVideo()">Close</button>
+      </div>
+
+      <!-- Gallery Controls (shown only in Remote mode) -->
+      <div id="galleryControls" style="display:none; gap:10px; align-items:center; margin-bottom:8px;">
+        <button type="button" class="btn-secondary" onclick="galleryPrev()">Prev</button>
+        <div id="galleryCounter" style="color:#fff; font-size:13px;">0 / 0</div>
+        <button type="button" class="btn-secondary" onclick="galleryNext()">Next</button>
+      </div>
+
+      <img id="cameraImage" alt="Camera view" loading="lazy" />
+      <div id="imageLoading"
+        style="display:none;color:#fff;text-align:center;padding:12px">
+        Loading...
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Cam Modal (unchanged UI; backend not implemented here) -->
+  <div id="addCamModal" class="modal-overlay" style="display:none">
     <div class="modal-card">
       <div class="modal-top">
         <h3>Add New CAM</h3>
-        <button class="modal-close" onclick="closeAddCam()">X</button>
+        <button type="button" class="modal-close" onclick="closeAddCam()">X</button>
       </div>
       <div class="modal-grid">
         <label>CAM Name</label>
         <input id="camName" placeholder="CAM3" />
+
         <label>CAM IP</label>
         <input id="camIp" placeholder="192.168.100.153" />
+
         <label>User Name</label>
-        <input id="camUser" placeholder="admin" />
+        <input id="camUser" placeholder="admin" autocomplete="username" />
+
         <label>Password</label>
-        <input id="camPass" type="password" placeholder="********" />
+        <input id="camPass" type="password" placeholder="********" autocomplete="current-password" />
+
         <div id="addCamMsg" class="form-msg"></div>
+
         <div class="modal-actions">
-          <button class="btn-secondary" onclick="closeAddCam()">Cancel</button>
-          <button class="btn-primary" onclick="saveNewCam()">Save</button>
+          <button type="button" class="btn-secondary" onclick="closeAddCam()">Cancel</button>
+          <button type="button" class="btn-primary" onclick="saveNewCam()">Save</button>
         </div>
       </div>
     </div>
@@ -104,5 +162,12 @@
 
   <!-- JS -->
   <script src="js/dashboard.js"></script>
+
+  <!-- Keep your existing guard -->
+  <script>
+    if (!localStorage.getItem("access_token")) {
+      window.location.href = "login.html";
+    }
+  </script>
 </body>
 </html>
