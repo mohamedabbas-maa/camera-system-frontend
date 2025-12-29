@@ -74,6 +74,6 @@ form.addEventListener("submit", async (e) => {
     }, 300);
   } catch (err) {
     console.error("Fetch error:", err);
-    window.location.href = "dashboard.html";
+    showError("Network error (Check Server)");
   }
 });
