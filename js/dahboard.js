@@ -3,14 +3,17 @@
 // - Local  : backend (/cams, /stream/{id})
 // - Remote : Supabase Storage (list + public URLs)
 
+/* =========================================================
+   Config
+========================================================= */
 const API_BASE_URL =
   localStorage.getItem("api_base_url") || "http://127.0.0.1:5500";
 
-const CAMS_REFRESH_MS = 15000; // refresh camera list
-const MODAL_FPS_MS = 1000;     // local stream refresh
+const CAMS_REFRESH_MS = 15000;
+const MODAL_FPS_MS = 1000;
 
 /* =========================================================
-   Supabase (Remote mode only)
+   Supabase (Remote mode)
 ========================================================= */
 const SUPABASE_URL = "https://uepbmvkymltqqavuelwt.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_kmHGVgPcosfx_rmB17Q-zA_C4225Go2";
@@ -37,7 +40,7 @@ function supabasePublicUrl(path) {
 }
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return new Date().toISOString().slice(0, 10);
 }
 
 /* =========================================================
@@ -46,8 +49,6 @@ function todayISO() {
 function byId(id) {
   return document.getElementById(id);
 }
-
-const imageLoading = byId("imageLoading");
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({
@@ -63,11 +64,13 @@ function isOnlineStatus(status) {
   return String(status || "").toLowerCase() === "online";
 }
 
-// Convert camera name to storage folder name (CAM1 -> cam1)
 function camFolderName(cam) {
   return String(cam?.name || "").trim().toLowerCase();
 }
 
+/* =========================================================
+   Auth helpers (Local ONLY)
+========================================================= */
 function isLoggedIn() {
   return !!localStorage.getItem("access_token");
 }
@@ -77,10 +80,6 @@ function authHeaders() {
   if (!token || token === "OK") return {};
   return { Authorization: `Bearer ${token}` };
 }
-
-/* =========================================================
-   ensure login (Local / Remote)
-========================================================= */
 
 function ensureLoggedIn() {
   if (!isLoggedIn()) {
@@ -92,14 +91,13 @@ function ensureLoggedIn() {
       error.style.display = "block";
       error.textContent = "Please login first.";
     }
-
     return false;
   }
   return true;
 }
 
 /* =========================================================
-   Connection mode (Local / Remote)
+   Connection mode
 ========================================================= */
 function getMode() {
   return localStorage.getItem("connection_mode"); // "local" | "remote"
@@ -132,13 +130,11 @@ let allCameras = [];
 let currentFilter = "all";
 let refreshTimer = null;
 
-// modal state
 let modalTimer = null;
 let modalRunning = false;
 let currentModalCameraId = null;
 let modalGen = 0;
 
-// gallery state (remote)
 let galleryImages = [];
 let galleryIndex = 0;
 let galleryFolder = "";
@@ -166,8 +162,10 @@ function renderCameras() {
   if (!grid) return;
 
   let cams = allCameras;
-  if (currentFilter === "online") cams = cams.filter(c => isOnlineStatus(c.status));
-  if (currentFilter === "offline") cams = cams.filter(c => !isOnlineStatus(c.status));
+  if (currentFilter === "online")
+    cams = cams.filter(c => isOnlineStatus(c.status));
+  if (currentFilter === "offline")
+    cams = cams.filter(c => !isOnlineStatus(c.status));
 
   if (cams.length === 0) {
     grid.innerHTML = "<p style='padding:20px'>No cameras found</p>";
@@ -175,28 +173,16 @@ function renderCameras() {
   }
 
   grid.innerHTML = cams.map(cam => {
-    const enabled = cam.enabled !== false;
-    const online = isOnlineStatus(cam.status);
-
-    const icon = enabled
-      ? (online ? "📹" : "📵")
-      : "⛔";
-
     const statusText =
-      getMode() === "remote"
-        ? "Remote"
-        : (!enabled ? "Disabled" : (online ? "Online" : "Offline"));
-
+      getMode() === "remote" ? "Remote" : cam.status;
     const statusClass =
       getMode() === "remote"
         ? "status-online"
-        : (!enabled
-            ? "status-disabled"
-            : (online ? "status-online" : "status-offline"));
+        : (isOnlineStatus(cam.status) ? "status-online" : "status-offline");
 
     return `
       <div class="camera-card" data-id="${cam.id}">
-        <div class="camera-preview">${icon}</div>
+        <div class="camera-preview">📹</div>
         <div class="camera-info">
           <h3>${escapeHtml(cam.name)}</h3>
           <span class="camera-status ${statusClass}">
@@ -217,19 +203,21 @@ function renderCameras() {
 }
 
 /* =========================================================
-   Load cameras (Local vs Remote)
+   Load cameras (FINAL MERGED LOGIC)
 ========================================================= */
 async function loadCameras() {
   const loading = byId("loading");
   const error = byId("error");
 
-  if (!ensureLoggedIn()) return;
-
+  // Ask for mode first
   if (!getMode()) {
     if (loading) loading.style.display = "none";
     showModeModal();
     return;
   }
+
+  // Local requires login (NO redirect)
+  if (getMode() === "local" && !ensureLoggedIn()) return;
 
   if (loading) loading.style.display = "block";
   if (error) error.style.display = "none";
@@ -243,9 +231,6 @@ async function loadCameras() {
       if (!res.ok) throw new Error("CAMS_UNAVAILABLE");
 
       const data = await res.json();
-      if (!data || !Array.isArray(data.cams))
-        throw new Error("INVALID_CAMS_FORMAT");
-
       allCameras = data.cams.map(c => ({
         id: c.id,
         name: c.name,
@@ -256,13 +241,13 @@ async function loadCameras() {
     } else {
       const items = await supabaseList("");
       allCameras = items
+        .filter(x => x.name.startsWith("cam"))
         .map((x, i) => ({
           id: i,
           name: x.name,
           status: "remote",
           enabled: true,
-        }))
-        .filter(c => c.name.startsWith("cam"));
+        }));
     }
 
     updateStats();
@@ -275,30 +260,15 @@ async function loadCameras() {
       error.style.display = "block";
       error.textContent = "Couldn't load cameras.";
     }
-    allCameras = [];
-    updateStats();
-    renderCameras();
   }
 }
-
-/* =========================================================
-   Filters
-========================================================= */
-window.filterCameras = function (filter, btnEl) {
-  currentFilter = filter;
-  document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
-  if (btnEl && btnEl.classList) btnEl.classList.add("active");
-  renderCameras();
-};
 
 /* =========================================================
    Modal helpers
 ========================================================= */
 function stopModalLoop() {
-  if (modalTimer) {
-    clearInterval(modalTimer);
-    modalTimer = null;
-  }
+  if (modalTimer) clearInterval(modalTimer);
+  modalTimer = null;
   modalRunning = false;
   currentModalCameraId = null;
   modalGen++;
@@ -313,36 +283,35 @@ function setGalleryCounter() {
   const counter = byId("galleryCounter");
   if (!counter) return;
   counter.textContent =
-    `${galleryImages.length ? (galleryIndex + 1) : 0} / ${galleryImages.length}`;
+    `${galleryImages.length ? galleryIndex + 1 : 0} / ${galleryImages.length}`;
 }
 
 /* =========================================================
-   🔥 MODIFIED FUNCTION: Image loading with spinner
+   Image loading with overlay
 ========================================================= */
+const imageLoading = byId("imageLoading");
+
 function setImageSrc(src) {
   const img = byId("cameraImage");
   if (!img) return;
 
-  if (imageLoading) imageLoading.style.display = "block";
-  img.style.display = "none";
+  if (imageLoading) imageLoading.style.display = "flex";
+  img.style.visibility = "hidden";
 
   const loader = new Image();
-
   loader.onload = () => {
     img.src = loader.src;
-    img.style.display = "block";
+    img.style.visibility = "visible";
     if (imageLoading) imageLoading.style.display = "none";
   };
-
   loader.onerror = () => {
     if (imageLoading) imageLoading.style.display = "none";
   };
-
   loader.src = src;
 }
 
 /* =========================================================
-   Remote gallery (Supabase)
+   Remote gallery
 ========================================================= */
 async function openRemoteGallery(cam) {
   showGalleryControls(true);
@@ -351,11 +320,9 @@ async function openRemoteGallery(cam) {
   galleryImages = [];
   galleryIndex = 0;
   setGalleryCounter();
-  setImageSrc("");
 
   try {
     const today = todayISO();
-
     let files = await supabaseList(`${galleryFolder}/${today}/`);
     let day = today;
 
@@ -371,13 +338,9 @@ async function openRemoteGallery(cam) {
       .filter(p => /\.(jpg|jpeg|png)$/i.test(p))
       .sort();
 
-    galleryIndex = 0;
     setGalleryCounter();
-
     if (galleryImages.length) {
-      setImageSrc(
-        supabasePublicUrl(galleryImages[0]) + `?t=${Date.now()}`
-      );
+      setImageSrc(supabasePublicUrl(galleryImages[0]));
     }
   } catch (e) {
     console.error("Remote gallery error:", e);
@@ -385,7 +348,7 @@ async function openRemoteGallery(cam) {
 }
 
 /* =========================================================
-   Local stream (unchanged)
+   Local stream loop (UNCHANGED)
 ========================================================= */
 function startLocalStreamLoop(cam) {
   showGalleryControls(false);
@@ -418,7 +381,7 @@ function startLocalStreamLoop(cam) {
 }
 
 /* =========================================================
-   Open video (Local / Remote)
+   Open video
 ========================================================= */
 function openVideo(cam) {
   if (!cam) return;
@@ -435,7 +398,6 @@ function openVideo(cam) {
     title.textContent =
       `${cam.name} — ${getMode() === "remote" ? "Remote" : "Local"}`;
   }
-
   if (modal) modal.style.display = "flex";
 
   if (getMode() === "remote") {
@@ -460,25 +422,22 @@ window.galleryPrev = function () {
   if (!galleryImages.length) return;
   galleryIndex = Math.max(0, galleryIndex - 1);
   setGalleryCounter();
-  setImageSrc(
-    supabasePublicUrl(galleryImages[galleryIndex]) + `?t=${Date.now()}`
-  );
+  setImageSrc(supabasePublicUrl(galleryImages[galleryIndex]));
 };
 
 window.galleryNext = function () {
   if (!galleryImages.length) return;
   galleryIndex = Math.min(galleryImages.length - 1, galleryIndex + 1);
   setGalleryCounter();
-  setImageSrc(
-    supabasePublicUrl(galleryImages[galleryIndex]) + `?t=${Date.now()}`
-  );
+  setImageSrc(supabasePublicUrl(galleryImages[galleryIndex]));
 };
 
 /* =========================================================
-   Logout / Change mode / Refresh
+   Misc
 ========================================================= */
 window.logout = function () {
-  localStorage.clear();
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("connection_mode");
   window.location.href = "login.html";
 };
 
@@ -496,30 +455,6 @@ window.refreshNow = function () {
    Init
 ========================================================= */
 window.addEventListener("load", () => {
-  const userNameEl = byId("userName");
-  if (userNameEl)
-    userNameEl.textContent = localStorage.getItem("username") || "User";
-
-  if (!getMode()) {
-    const loading = byId("loading");
-    if (loading) loading.style.display = "none";
-    showModeModal();
-    return;
-  }
-
   loadCameras();
   refreshTimer = setInterval(loadCameras, CAMS_REFRESH_MS);
-
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      if (refreshTimer) {
-        clearInterval(refreshTimer);
-        refreshTimer = null;
-      }
-    } else {
-      loadCameras();
-      if (!refreshTimer)
-        refreshTimer = setInterval(loadCameras, CAMS_REFRESH_MS);
-    }
-  });
 });
